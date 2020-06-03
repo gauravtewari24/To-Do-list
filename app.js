@@ -27,11 +27,39 @@ const item1 = new Item({
 const defaultItems = [item1];
 
 const listSchema = {
+  user: String,
   name: String,
   items: [itemsSchema]
 };
 
 const List = mongoose.model("List", listSchema);
+
+const userSchema = {
+  email: String,
+  password: String,
+};
+
+const User = mongoose.model("user", userSchema);
+
+// custom variables
+
+var usern="";
+
+// get route
+
+app.get("/login", function (req, res) {
+  res.render("login");
+});
+
+app.get("/register", function (req, res) {
+  res.render("register");
+});
+app.get("/lg", function (req, res) {
+  usern="";
+  console.log("logout");
+  res.redirect("/");
+});
+
 
 
 app.get("/", function(req, res) {
@@ -48,7 +76,8 @@ app.get("/", function(req, res) {
       });
       res.redirect("/");
     } else {
-      res.render("list", {listTitle: "Today", newListItems: foundItems});
+      console.log(usern);
+      res.render("list", {userName: usern ,listTitle: "Today", newListItems: foundItems});
     }
   });
 
@@ -57,11 +86,12 @@ app.get("/", function(req, res) {
 app.get("/:customListName", function(req, res){
   const customListName = _.capitalize(req.params.customListName);
 
-  List.findOne({name: customListName}, function(err, foundList){
+  List.findOne({user:usern , name: customListName}, function(err, foundList){
     if (!err){
       if (!foundList){
         //Create a new list
         const list = new List({
+          user: usern,
           name: customListName,
           items: defaultItems
         });
@@ -69,8 +99,7 @@ app.get("/:customListName", function(req, res){
         res.redirect("/" + customListName);
       } else {
         //Show an existing list
-
-        res.render("list", {listTitle: foundList.name, newListItems: foundList.items});
+          res.render("list", {userName: foundList.user , listTitle: foundList.name, newListItems: foundList.items,});
       }
     }
   });
@@ -79,11 +108,50 @@ app.get("/:customListName", function(req, res){
 
 });
 
+// post route
+
 app.post("/customlist", function(req, res){
 
   const List = req.body.newList;
   res.redirect("/" + List);
   
+});
+
+app.post("/register", function (req, res) {
+  const newUser = new User({
+    email: req.body.username,
+    password: req.body.password,
+  });
+
+  newUser.save(function (err) {
+    if (err) {
+      console.log(err);
+    } else {
+      usern=req.body.username;
+      console.log(usern);
+      res.redirect("/");
+    }
+  });
+});
+
+app.post("/login", function (req, res) {
+  const username = req.body.username;
+  const password = req.body.password;
+
+  User.findOne({email:username}, function (err, foundUser) {
+    if (err) {
+      console.log(err);
+    } else {
+      if (foundUser) {
+        if (foundUser.password === password) {
+          usern=foundUser.email;
+          res.redirect("/")
+        }
+      } else {
+        console.log("go to the registration page fool");
+      }
+    }
+  });
 });
 
 app.post("/", function(req, res){
@@ -96,10 +164,15 @@ app.post("/", function(req, res){
   });
 
   if (listName === "Today"){
-    item.save();
-    res.redirect("/");
+    if(usern===""){
+      item.save();
+      res.redirect("/");
+    }else{
+      res.redirect("/Today "+usern)
+    }
   } else {
-    List.findOne({name: listName}, function(err, foundList){
+    List.findOne({user: usern, name: listName}, function(err, foundList){
+
       foundList.items.push(item);
       foundList.save();
       res.redirect("/" + listName);
@@ -119,13 +192,13 @@ app.post("/delete", function(req, res){
       }
     });
   } else {
-    List.findOneAndUpdate({name: listName}, {$pull: {items: {_id: checkedItemId}}}, function(err, foundList){
+    List.findOneAndUpdate({user:usern , name: listName}, {$pull: {items: {_id: checkedItemId}}}, function(err, foundList){
       if (!err){
         res.redirect("/" + listName);
       }
     });
   }
-
+ 
 
 });
 

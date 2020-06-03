@@ -2,11 +2,27 @@
 
 <!-- list starts -->
 <div style="background-image: url('../images/img.jpg'); padding: 30px;">
-  <div id="heading" style="margin: auto; width: 30%">
-    <h1>TO DO LIST WEB-APP</h1>
-    <!-- main list -->
 
+  <div class="row">
+    <div class="col-lg-4" id="heading" >
+    <h1 style="font-size: 30px;"> <%= userName %> </h1>
   </div>
+
+  <div class="col-lg-4" id="heading" >
+    <h1>TO DO LIST WEB-APP</h1>
+    <!-- <a class="btn btn-dark btn-lg" href="/logout" role="button">Log out</a> -->
+  </div>
+
+  <div class="col-lg-4" id="heading">
+    <% if(userName===""){%>
+      <a class="btn btn-light btn-lg" href="/register" role="button">Register</a>
+      <a class="btn btn-dark btn-lg" href="/login" role="button">Login</a>
+    <%}else{ %>
+      <a class="btn btn-dark btn-lg" href="/lg" role="button">Logout</a>
+    <% }%>
+  </div>
+  </div>
+  
   <div class="row">
 
     <!-- box 1st -->
@@ -48,7 +64,7 @@
 
         <form class="item" action="/" method="post">
           <input type="text" name="newItem" placeholder="New Item" autocomplete="off">
-          <button type="submit" name="list" value="<%= listTitle %>">+</button>
+          <button type="submit" name="list" class="button" value="<%= listTitle %>">+</button>
         </form>
       </div>
 
@@ -66,7 +82,7 @@
 
         <form class="item" action="/customList" method="post">
           <input type="text" name="newList" placeholder="New List" autocomplete="off">
-          <button type="submit" name="list" value="">+</button>
+          <button type="submit" name="list" class="button" value="">+</button>
         </form>
 
         </div>

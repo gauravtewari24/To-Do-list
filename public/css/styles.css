@@ -1,5 +1,6 @@
 html {
   font-family: 'helvetica neue';
+  background-image: url('../images/img.jpg');
 }
 
 h1 {
@@ -75,7 +76,7 @@ form.item {
   margin-left: 20px;
 }
 
-button {
+.button {
   min-height: 50px;
   width: 50px;
   border-radius: 50%;
