@@ -1,49 +1,52 @@
-//jshint esversion:6
+var express = require("express"),
+    bodyParser = require("body-parser"),
+    mongoose = require("mongoose"),
+    User = require("./models/users.js"),
+    Item = require("./models/item.js"),
+    List = require("./models/list.js"),
+    passport=require("passport"),
+    LocalStrategy=require("passport-local");
+    //User = require("./models/user.js");
 
-const express = require("express");
-const bodyParser = require("body-parser");
-const mongoose = require("mongoose");
 const _ = require("lodash");
 
 const app = express();
 
-app.set('view engine', 'ejs');
+app.set("view engine", "ejs");
 
-app.use(bodyParser.urlencoded({extended: true}));
+app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static("public"));
 
-mongoose.connect("mongodb://localhost:27017/todolistDB", {useNewUrlParser: true});
+mongoose.connect(
+  "mongodb+srv://gaurav:gaurav@comment-yjkq4.mongodb.net/<dbname>?retryWrites=true&w=majority",
+  { useNewUrlParser: true }
+);
 
-const itemsSchema = {
-  name: String
-};
+app.use(require("express-session")({
+  secret: "Once again the monsoon arrives!",
+  resave: false,
+  saveUninitialized: false
+}));
+app.use(passport.initialize());
+app.use(passport.session());
+passport.use(new LocalStrategy(User.authenticate()));
+passport.serializeUser(User.serializeUser());
+passport.deserializeUser(User.deserializeUser());
 
-const Item = mongoose.model("Item", itemsSchema);
+app.use(function(req,res,next){
+  res.locals.currentUser=req.user;
+  //res.locals.error= req.flash("error");
+  //res.locals.success=req.flash("success");
+  next();
+})
 
-const item1 = new Item({
-  name: "Welcome to your todolist!"
-});
-
-const defaultItems = [item1];
-
-const listSchema = {
-  user: String,
-  name: String,
-  items: [itemsSchema]
-};
-
-const List = mongoose.model("List", listSchema);
-
-const userSchema = {
-  email: String,
-  password: String,
-};
-
-const User = mongoose.model("user", userSchema);
 
 // custom variables
 
-var usern="";
+//var usern = "gaurav";
+var date_search = "";
+var category_search = "";
+var went = "false";
 
 // get route
 
@@ -55,153 +58,133 @@ app.get("/register", function (req, res) {
   res.render("register");
 });
 app.get("/lg", function (req, res) {
-  usern="";
-  console.log("logout");
+  req.logout();
+  //console.log("logout");
   res.redirect("/");
 });
 
-
-
-app.get("/", function(req, res) {
-
-  Item.find({}, function(err, foundItems){
-
-    if (foundItems.length === 0) {
-      Item.insertMany(defaultItems, function(err){
-        if (err) {
-          console.log(err);
-        } else {
-          console.log("Successfully savevd default items to DB.");
-        }
-      });
-      res.redirect("/");
-    } else {
-      console.log(usern);
-      res.render("list", {userName: usern ,listTitle: "Today", newListItems: foundItems});
-    }
-  });
-
+app.get("/", function (req, res) {
+  res.render("landing");
 });
 
-app.get("/:customListName", function(req, res){
-  const customListName = _.capitalize(req.params.customListName);
+app.get("/category",isLoggedIn, function (req, res) {
+  var today = new Date();
+  var dd = String(today.getDate()).padStart(2, "0");
+  var mm = String(today.getMonth() + 1).padStart(2, "0"); //January is 0!
+  var yyyy = today.getFullYear();
 
-  List.findOne({user:usern , name: customListName}, function(err, foundList){
-    if (!err){
-      if (!foundList){
-        //Create a new list
-        const list = new List({
-          user: usern,
-          name: customListName,
-          items: defaultItems
-        });
-        list.save();
-        res.redirect("/" + customListName);
-      } else {
-        //Show an existing list
-          res.render("list", {userName: foundList.user , listTitle: foundList.name, newListItems: foundList.items,});
-      }
+  today = yyyy + "-" + mm + "-" + dd;
+  console.log(today);
+  
+    if (went === "false") {
+      date_search = "";
+      category_search = "";
     }
-  });
-
-
-
+    Item.find({ user: req.user.username })
+      .sort({ date: 1 })
+      .then((posts) => {
+        res.render("list", {
+          
+          listTitle: "All Tasks",
+          newListItems: posts,
+          today: today,
+          date_s: date_search,
+          category_s: category_search,
+        });
+        went = "false";
+      })
+      .catch((err) => {
+        console.log(err);
+      });
+  //}
 });
 
 // post route
 
-app.post("/customlist", function(req, res){
+app.post("/category",isLoggedIn, function (req, res) {
+  const category = req.body.newList;
+  const task = req.body.task;
+  const date = req.body.duedate;
 
-  const List = req.body.newList;
-  res.redirect("/" + List);
+  const item = new Item({
+    task: task,
+    date: date,
+    user: req.user.username,
+    category: category,
+  });
+  
+    item.save();
+    res.redirect("/category");
   
 });
 
+app.post("/search",isLoggedIn, function (req, res) {
+  const category = req.body.newList;
+  const date = req.body.date;
+
+    category_search = category;
+    date_search = date;
+    went = "true";
+    res.redirect("/category");
+});
+
 app.post("/register", function (req, res) {
-  const newUser = new User({
-    email: req.body.username,
-    password: req.body.password,
-  });
-
-  newUser.save(function (err) {
-    if (err) {
-      console.log(err);
-    } else {
-      usern=req.body.username;
-      console.log(usern);
-      res.redirect("/");
-    }
-  });
-});
-
-app.post("/login", function (req, res) {
-  const username = req.body.username;
-  const password = req.body.password;
-
-  User.findOne({email:username}, function (err, foundUser) {
-    if (err) {
-      console.log(err);
-    } else {
-      if (foundUser) {
-        if (foundUser.password === password) {
-          usern=foundUser.email;
-          res.redirect("/")
-        }
-      } else {
-        console.log("go to the registration page fool");
+  var newUser = new User({username: req.body.username});
+  //const email = req.body.username;
+  User.register(newUser, req.body.password, function(err, user){
+    if(err){
+        //req.flash("error", err.message);
+        console.log(err);
+        return res.redirect("/register");
       }
-    }
-  });
-});
-
-app.post("/", function(req, res){
-
-  const itemName = req.body.newItem;
-  const listName = req.body.list;
-
-  const item = new Item({
-    name: itemName
-  });
-
-  if (listName === "Today"){
-    if(usern===""){
-      item.save();
-      res.redirect("/");
-    }else{
-      res.redirect("/Today "+usern)
-    }
-  } else {
-    List.findOne({user: usern, name: listName}, function(err, foundList){
-
-      foundList.items.push(item);
-      foundList.save();
-      res.redirect("/" + listName);
+    passport.authenticate("local")(req, res, function(){
+     
+        //req.flash("success", "Welcome to YelpCamp " + user.username);
+        res.redirect("/category");
     });
-  }
+});
+  
 });
 
-app.post("/delete", function(req, res){
+app.post("/login", passport.authenticate("local",
+{
+    successRedirect:"/category",
+    failureRedirect:"/login"
+        }),function (req, res) {
+  const usern = req.body.username;
+  
+});
+
+
+
+app.post("/delete", function (req, res) {
   const checkedItemId = req.body.checkbox;
   const listName = req.body.listName;
 
-  if (listName === "Today") {
-    Item.findByIdAndRemove(checkedItemId, function(err){
+  if (listName === "All Tasks") {
+    Item.findByIdAndRemove(checkedItemId, function (err) {
       if (!err) {
         console.log("Successfully deleted checked item.");
-        res.redirect("/");
+        res.redirect("/category");
       }
     });
   } else {
-    List.findOneAndUpdate({user:usern , name: listName}, {$pull: {items: {_id: checkedItemId}}}, function(err, foundList){
-      if (!err){
-        res.redirect("/" + listName);
-      }
-    });
+    res.redirect("/category");
   }
- 
-
 });
 
-app.listen(3000, function() {
-  console.log("Server started on port 3000");
+
+function isLoggedIn(req,res,next){
+  if(req.isAuthenticated()){
+    return next();
+  }
+  //req.flash("error","You need to be Logged In!")
+  res.redirect("/login");
+}
+
+
+const PORT = process.env.PORT || 3000;
+
+app.listen(PORT, function () {
+  console.log("server started at 3000 port");
 });
